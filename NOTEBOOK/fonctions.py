@@ -375,4 +375,26 @@ def analyze_cluster(data, cluster_column, cluster_value):
     # print("Radar plot des colonnes numériques :")
     # radar_plot(cluster_data)
     # print("Statistiques descriptives des colonnes numériques :")
-    # descriptive_statistics(cluster_data)        
+    # descriptive_statistics(cluster_data)
+    
+def plot_all_pca_correlation_circles(pca, features):
+    n_components = pca.n_components_
+    fig, axs = plt.subplots(n_components-1, n_components-1, figsize=(15, 15))
+
+    for i in range(n_components):
+        for j in range(i+1, n_components):
+            ax = axs[i, j-1]  # j-1 car il n'y a pas de subplot pour i=j
+            for k in range(0, pca.components_.shape[1]):
+                ax.arrow(0, 0, pca.components_[i, k], pca.components_[j, k], head_width=0.07, head_length=0.07, width=0.02)
+                ax.text(pca.components_[i, k] + 0.05, pca.components_[j, k] + 0.05, features[k])
+            ax.plot([-1, 1], [0, 0], color='grey', ls='--')
+            ax.plot([0, 0], [-1, 1], color='grey', ls='--')
+            ax.set_xlabel('F{} ({}%)'.format(i+1, round(100*pca.explained_variance_ratio_[i],1)))
+            ax.set_ylabel('F{} ({}%)'.format(j+1, round(100*pca.explained_variance_ratio_[j],1)))
+            ax.set_title("Cercle des corrélations (F{} et F{})".format(i+1, j+1))
+            an = np.linspace(0, 2 * np.pi, 100)
+            ax.plot(np.cos(an), np.sin(an))  # Add a unit circle for scale
+            ax.axis('equal')
+
+    plt.tight_layout()
+    plt.show(block=False)        
