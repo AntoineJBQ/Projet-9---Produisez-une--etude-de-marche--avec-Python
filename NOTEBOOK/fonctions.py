@@ -397,4 +397,484 @@ def plot_all_pca_correlation_circles(pca, features):
             ax.axis('equal')
 
     plt.tight_layout()
-    plt.show(block=False)        
+    plt.show(block=False)   
+
+
+from math import pi
+
+def get_cluster_data(data, cluster_column, cluster_value):
+    """Renvoie un sous-ensemble de données pour le cluster spécifié."""
+    return data[data[cluster_column] == cluster_value]
+
+def radar_plot(*cluster_data_list):
+    """Crée un radar plot pour les variables numériques de plusieurs clusters."""
+    for cluster_data in cluster_data_list:
+        numeric_columns = cluster_data.select_dtypes(include='number').columns
+        stats = cluster_data[numeric_columns].mean().tolist()
+        stats += stats[:1]  # repeat the first value to close the circular graph
+        angles = [n / float(len(numeric_columns)) * 2 * pi for n in range(len(numeric_columns))]
+        angles += angles[:1]
+        plt.polar(angles, stats)
+        plt.fill(angles, stats, alpha=0.1)
+    plt.xticks(angles[:-1], numeric_columns)
+    plt.show()
+    
+def plot_boxplot(data):
+    """Crée un boxplot pour toutes les colonnes numériques côte à côte."""
+    numeric_columns = data.select_dtypes(include='number').columns
+    sns.boxplot(data=data[numeric_columns])
+    plt.xticks(rotation=90)  # Rotation des étiquettes sur l'axe des x pour une meilleure lisibilité
+    plt.show()
+    
+def radar_plot_subplot(cluster_data_list, ax):
+    """Crée un radar plot pour les variables numériques de plusieurs clusters."""
+    for cluster_data in cluster_data_list:
+        numeric_columns = cluster_data.select_dtypes(include='number').columns
+        stats = cluster_data[numeric_columns].mean().tolist()
+        stats += stats[:1]  # repeat the first value to close the circular graph
+        angles = [n / float(len(numeric_columns)) * 2 * pi for n in range(len(numeric_columns))]
+        angles += angles[:1]
+        ax.plot(angles, stats)  # Utilisez plot au lieu de polar
+        ax.fill(angles, stats, alpha=0.1)
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(numeric_columns)
+
+def plot_boxplot_subplot(data, ax):
+    """Crée un boxplot pour toutes les colonnes numériques côte à côte."""
+    numeric_columns = data.select_dtypes(include='number').columns
+    sns.boxplot(data=data[numeric_columns], ax=ax)
+    ax.set_xticklabels(numeric_columns, rotation=90)  # Rotation des étiquettes sur l'axe des x pour une meilleure lisibilité
+
+def plot_subplots(cluster_data_list, data):
+    """Crée un subplot avec un radar plot et un boxplot."""
+    fig = plt.figure(figsize=(12, 6))
+    ax1 = fig.add_subplot(121, polar=True)
+    ax2 = fig.add_subplot(122)
+    radar_plot_subplot(cluster_data_list, ax1)
+    plot_boxplot_subplot(data, ax2)
+    plt.show()
+    
+def descriptive_statistics(cluster_data):
+    """Affiche les statistiques descriptives pour les colonnes numériques du cluster."""
+    numeric_columns = cluster_data.select_dtypes(include='number')
+    print(numeric_columns.describe())
+    
+def analyze_cluster(data, cluster_column, cluster_value):
+    """Analyse un cluster spécifié en appelant toutes les fonctions."""
+    cluster_data = get_cluster_data(data, cluster_column, cluster_value)
+    print('Boxplot et radarplot pour le cluster', cluster_value)
+    plot_subplots([cluster_data], data)
+    # print("Boxplot des colonnes numériques :")
+    # plot_boxplot(cluster_data)
+    # print("Radar plot des colonnes numériques :")
+    # radar_plot(cluster_data)
+    # print("Statistiques descriptives des colonnes numériques :")
+    # descriptive_statistics(cluster_data)    
+
+import pandas as pd
+from sklearn.decomposition import PCA
+
+def apply_pca(X):
+    """
+    Applique l'Analyse en Composantes Principales (ACP) sur les données X.
+
+    Parameters:
+        X (DataFrame): Les données d'entrée.
+
+    Returns:
+        pca (PCA): L'objet PCA ajusté.
+    """
+    # Créer les composantes principales
+    pca = PCA()
+    X_acp = pca.fit_transform(X)
+    # Convertir en dataframe
+    noms_composantes = [f"CP{i+1}" for i in range(X_acp.shape[1])]
+    X_acp = pd.DataFrame(X_acp, columns=noms_composantes)
+    # Créer les chargements
+    chargements = pd.DataFrame(
+        pca.components_.T,  # transposer la matrice des chargements
+        columns=noms_composantes,  # les colonnes sont les composantes principales
+        index=X.columns,  # les lignes sont les variables originales
+    )
+    return pca
+
+def plot_variance(acp, largeur=8, dpi=100):
+    """
+    Trace les graphiques de la variance expliquée et cumulative de l'ACP.
+
+    Parameters:
+        acp (PCA): L'objet PCA ajusté.
+        largeur (int): La largeur de la figure.
+        dpi (int): La résolution de la figure.
+
+    Returns:
+        axs (array): Les axes des graphiques.
+    """
+    # Créer la figure
+    fig, axs = plt.subplots(1, 2)
+    n = acp.n_components_
+    grille = np.arange(1, n + 1)
+    # Variance expliquée
+    variance_exp = acp.explained_variance_ratio_
+    axs[0].bar(grille, variance_exp)
+    axs[0].set(
+        xlabel="Composante", title="% Variance Expliquée", ylim=(0.0, 1.0)
+    )
+    # Variance cumulative
+    variance_cumul = np.cumsum(variance_exp)
+    axs[1].plot(np.r_[0, grille], np.r_[0, variance_cumul], "o-")
+    axs[1].set(
+        xlabel="Composante", title="% Variance Cumulative", ylim=(0.0, 1.0)
+    )
+    # Configurer la figure
+    fig.set(figwidth=largeur, dpi=dpi)
+    return axs
+
+def plot_all_pca_correlation_circles(pca, features):
+    n_components = pca.n_components_
+    fig, axs = plt.subplots(n_components-1, n_components-1, figsize=(15, 15))
+
+    for i in range(n_components):
+        for j in range(i+1, n_components):
+            ax = axs[i, j-1]  # j-1 car il n'y a pas de subplot pour i=j
+            for k in range(0, pca.components_.shape[1]):
+                ax.arrow(0, 0, pca.components_[i, k], pca.components_[j, k], head_width=0.07, head_length=0.07, width=0.02)
+                ax.text(pca.components_[i, k] + 0.05, pca.components_[j, k] + 0.05, features[k])
+            ax.plot([-1, 1], [0, 0], color='grey', ls='--')
+            ax.plot([0, 0], [-1, 1], color='grey', ls='--')
+            ax.set_xlabel('F{} ({}%)'.format(i+1, round(100*pca.explained_variance_ratio_[i],1)))
+            ax.set_ylabel('F{} ({}%)'.format(j+1, round(100*pca.explained_variance_ratio_[j],1)))
+            ax.set_title("Cercle des corrélations (F{} et F{})".format(i+1, j+1))
+            an = np.linspace(0, 2 * np.pi, 100)
+            ax.plot(np.cos(an), np.sin(an))  # Add a unit circle for scale
+            ax.axis('equal')
+
+    plt.tight_layout()
+    plt.show(block=False)
+
+# Feature Scaling
+def scale_features(df, scaler):
+    """
+    Scale numerical features using a specified scaler.
+
+    Parameters:
+        df (DataFrame): Input DataFrame with numerical features.
+        scaler: Scaler object (e.g., StandardScaler, MinMaxScaler).
+
+    Returns:
+        DataFrame: DataFrame with scaled numerical features.
+    """
+    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+    df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
+    return df
+
+# Feature Engineering
+def create_new_feature(df, feature_name, expression):
+    """
+    Create a new feature in the DataFrame based on a mathematical expression.
+
+    Parameters:
+        df (DataFrame): Input DataFrame.
+        feature_name (str): Name of the new feature.
+        expression (str): Mathematical expression for the new feature.
+
+    Returns:
+        DataFrame: DataFrame with the new feature added.
+    """
+    df[feature_name] = df.eval(expression)
+    return df
+
+# Model Evaluation
+from sklearn.metrics import confusion_matrix, classification_report
+
+def evaluate_model(y_true, y_pred):
+    """
+    Evaluate the performance of a classification model.
+
+    Parameters:
+        y_true: True labels.
+        y_pred: Predicted labels.
+
+    Returns:
+        dict: Classification report and confusion matrix.
+    """
+    report = classification_report(y_true, y_pred)
+    matrix = confusion_matrix(y_true, y_pred)
+    return {'classification_report': report, 'confusion_matrix': matrix}
+
+# Data Splitting
+from sklearn.model_selection import train_test_split
+
+def split_data(df, target_column, test_size=0.2, random_state=42):
+    """
+    Split the dataset into training and testing sets.
+
+    Parameters:
+        df (DataFrame): Input DataFrame.
+        target_column (str): Name of the target column.
+        test_size (float): Proportion of the dataset to include in the test split.
+        random_state (int): Seed for random number generation.
+
+    Returns:
+        dict: Dictionary containing training and testing DataFrames.
+    """
+    X_train, X_test, y_train, y_test = train_test_split(
+        df.drop(target_column, axis=1), df[target_column],
+        test_size=test_size, random_state=random_state
+    )
+    return {'X_train': X_train, 'X_test': X_test, 'y_train': y_train, 'y_test': y_test}
+
+# Hyperparameter Tuning
+from sklearn.model_selection import GridSearchCV
+
+def tune_hyperparameters(model, param_grid, X, y, cv=5):
+    """
+    Tune hyperparameters using GridSearchCV.
+
+    Parameters:
+        model: Machine learning model.
+        param_grid (dict): Dictionary with hyperparameter values.
+        X: Features.
+        y: Target variable.
+        cv (int): Number of cross-validation folds.
+
+    Returns:
+        GridSearchCV: Fitted GridSearchCV object.
+    """
+    grid_search = GridSearchCV(model, param_grid, cv=cv)
+    grid_search.fit(X, y)
+    return grid_search
+
+# Time Series Analysis (Example: Rolling Mean)
+def time_series_rolling_mean(series, window_size):
+    """
+    Calculate the rolling mean for a time series.
+
+    Parameters:
+        series (Series): Time series data.
+        window_size (int): Size of the rolling window.
+
+    Returns:
+        Series: Time series with rolling mean.
+    """
+    return series.rolling(window=window_size).mean()
+
+# Text Data Processing
+from sklearn.feature_extraction.text import CountVectorizer
+
+def tokenize_text_data(text_data):
+    """
+    Tokenize text data using CountVectorizer.
+
+    Parameters:
+        text_data (Series): Series containing text data.
+
+    Returns:
+        DataFrame: Tokenized representation of text data.
+    """
+    vectorizer = CountVectorizer()
+    tokenized_data = vectorizer.fit_transform(text_data)
+    return pd.DataFrame(tokenized_data.toarray(), columns=vectorizer.get_feature_names_out())
+
+# Ensemble Methods
+from sklearn.ensemble import BaggingClassifier, AdaBoostClassifier
+
+def bagging_classifier(X_train, y_train, X_test, y_test):
+    """
+    Train and evaluate a BaggingClassifier.
+
+    Parameters:
+        X_train, y_train: Training data and labels.
+        X_test, y_test: Testing data and labels.
+
+    Returns:
+        BaggingClassifier: Fitted BaggingClassifier.
+    """
+    bagging_classifier = BaggingClassifier()
+    bagging_classifier.fit(X_train, y_train)
+    accuracy = bagging_classifier.score(X_test, y_test)
+    print(f'Bagging Classifier Accuracy: {accuracy:.2f}')
+    return bagging_classifier
+
+def adaboost_classifier(X_train, y_train, X_test, y_test):
+    """
+    Train and evaluate an AdaBoostClassifier.
+
+    Parameters:
+        X_train, y_train: Training data and labels.
+        X_test, y_test: Testing data and labels.
+
+    Returns:
+        AdaBoostClassifier: Fitted AdaBoostClassifier.
+    """
+    adaboost_classifier = AdaBoostClassifier()
+    adaboost_classifier.fit(X_train, y_train)
+    accuracy = adaboost_classifier.score(X_test, y_test)
+    print(f'AdaBoost Classifier Accuracy: {accuracy:.2f}')
+    return adaboost_classifier
+
+# Model Deployment (Example: Pickle)
+import pickle
+
+def save_model(model, filename):
+    """
+    Save a trained model using Pickle.
+
+    Parameters:
+        model: Trained machine learning model.
+        filename (str): Name of the file to save the model.
+
+    Returns:
+        None
+    """
+    with open(filename, 'wb') as file:
+        pickle.dump(model, file)
+
+def load_model(filename):
+    """
+    Load a trained model using Pickle.
+
+    Parameters:
+        filename (str): Name of the file containing the saved model.
+
+    Returns:
+        Model: Loaded machine learning model.
+    """
+    with open(filename, 'rb') as file:
+        model = pickle.load(file)
+    return model
+
+
+# Custom Visualization (Example: Correlation Heatmap)
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+def plot_correlation_heatmap(df):
+    """
+    Plot a correlation heatmap for the DataFrame.
+
+    Parameters:
+        df (DataFrame): Input DataFrame.
+
+    Returns:
+        None
+    """
+    correlation_matrix = df.corr()
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
+    plt.title('Correlation Heatmap')
+    plt.show()
+
+# Data Export
+def export_data_to_csv(df, filename):
+    """
+    Export DataFrame to a CSV file.
+
+    Parameters:
+        df (DataFrame): Input DataFrame.
+        filename (str): Name of the CSV file.
+
+    Returns:
+        None
+    """
+    df.to_csv(filename, index=False)
+
+# Example Usage:
+# Assuming df is your DataFrame, target_column is the target variable, and X and y are your features and labels.
+# Example for using the functions:
+# scaled_df = scale_features(df, StandardScaler())
+# new_df = create_new_feature(df, 'new_feature', 'feature1 + feature2')
+# split_data_dict = split_data(df, target_column='target')
+# grid_search = tune_hyperparameters(model, param_grid, X, y)
+# rolling_mean_series = time_series_rolling_mean(time_series, window_size=3)
+# tokenized_data = tokenize_text_data(text_data)
+# bagging_model = bagging_classifier(split_data_dict['X_train'], split_data_dict['y_train'],
+#                                    split_data_dict['X_test'], split_data_dict['y_test'])
+# save_model(bagging_model, 'bagging_model.pkl')
+# loaded_model = load_model('bagging_model.pkl')
+# automated_eda(df)
+# plot_correlation_heatmap(df)
+# export_data_to_csv(df, 'exported_data.csv')
+
+
+import pandas as pd
+import numpy as np
+from scipy.stats import zscore
+from sklearn.ensemble import RandomForestRegressor
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from statsmodels.tsa.seasonal import seasonal_decompose
+
+def handle_missing_data(df, strategy='mean'):
+    """
+    Handle missing data in a DataFrame.
+
+    Parameters:
+        df (DataFrame): Input DataFrame.
+        strategy (str): Strategy for imputing missing values ('mean', 'median', 'mode', 'constant').
+
+    Returns:
+        DataFrame: DataFrame with missing values handled.
+    """
+    if strategy == 'mean':
+        df.fillna(df.mean(), inplace=True)
+    elif strategy == 'median':
+        df.fillna(df.median(), inplace=True)
+    elif strategy == 'mode':
+        df.fillna(df.mode().iloc[0], inplace=True)
+    elif strategy == 'constant':
+        df.fillna(0, inplace=True)  # Replace with desired constant value
+    return df
+
+def handle_outliers(df, z_threshold=3):
+    """
+    Identify and handle outliers in a DataFrame using Z-score.
+
+    Parameters:
+        df (DataFrame): Input DataFrame.
+        z_threshold (float): Z-score threshold for identifying outliers.
+
+    Returns:
+        DataFrame: DataFrame with outliers handled.
+    """
+    z_scores = np.abs(zscore(df))
+    df_no_outliers = df[(z_scores < z_threshold).all(axis=1)]
+    return df_no_outliers
+
+def plot_feature_importance(X, y):
+    """
+    Plot feature importance using a RandomForestRegressor.
+
+    Parameters:
+        X: Features.
+        y: Target variable.
+
+    Returns:
+        None
+    """
+    model = RandomForestRegressor()
+    model.fit(X, y)
+    feature_importance = model.feature_importances_
+    features = X.columns
+    plt.bar(features, feature_importance)
+    plt.xlabel('Features')
+    plt.ylabel('Importance')
+    plt.title('Feature Importance')
+    plt.show()
+
+def decompose_time_series(series, freq=12):
+    """
+    Decompose a time series into trend, seasonal, and residual components.
+
+    Parameters:
+        series (Series): Time series data.
+        freq (int): Seasonal decomposition frequency.
+
+    Returns:
+        tuple: Trend, seasonal, and residual components.
+    """
+    decomposition = seasonal_decompose(series, freq=freq)
+    trend = decomposition.trend
+    seasonal = decomposition.seasonal
+    residual = decomposition.resid
+    return trend, seasonal, residual
