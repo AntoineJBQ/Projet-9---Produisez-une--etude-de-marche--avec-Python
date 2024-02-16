@@ -765,37 +765,6 @@ def plot_correlation_heatmap(df):
     plt.title('Correlation Heatmap')
     plt.show()
 
-# Data Export
-def export_data_to_csv(df, filename):
-    """
-    Export DataFrame to a CSV file.
-
-    Parameters:
-        df (DataFrame): Input DataFrame.
-        filename (str): Name of the CSV file.
-
-    Returns:
-        None
-    """
-    df.to_csv(filename, index=False)
-
-# Example Usage:
-# Assuming df is your DataFrame, target_column is the target variable, and X and y are your features and labels.
-# Example for using the functions:
-# scaled_df = scale_features(df, StandardScaler())
-# new_df = create_new_feature(df, 'new_feature', 'feature1 + feature2')
-# split_data_dict = split_data(df, target_column='target')
-# grid_search = tune_hyperparameters(model, param_grid, X, y)
-# rolling_mean_series = time_series_rolling_mean(time_series, window_size=3)
-# tokenized_data = tokenize_text_data(text_data)
-# bagging_model = bagging_classifier(split_data_dict['X_train'], split_data_dict['y_train'],
-#                                    split_data_dict['X_test'], split_data_dict['y_test'])
-# save_model(bagging_model, 'bagging_model.pkl')
-# loaded_model = load_model('bagging_model.pkl')
-# automated_eda(df)
-# plot_correlation_heatmap(df)
-# export_data_to_csv(df, 'exported_data.csv')
-
 
 import pandas as pd
 import numpy as np
